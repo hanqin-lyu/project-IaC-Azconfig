@@ -34,4 +34,4 @@ jobs:
           scope: resourceGroup
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           resource-group-name: Project-AzIaC
-          parameters-file: ./main.bicepparam
+          parameters-file: ./main.bicep
