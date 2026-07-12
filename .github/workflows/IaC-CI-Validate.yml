@@ -1,0 +1,58 @@
+name: IaC CI Validation pipeline
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deployment:
+    name: Bicep quality and security scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Install Bicep CLI
+        uses: Azure/bicep-install@v1
+      - name: Validate Bicep quality with bicep build
+        run: bicep build --file ./Bicep/main.bicep 
+      - name: run checkov scan
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: .
+          framework: bicep
+          soft-fail: true
+
+      - name: Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CI_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_CI_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Validate
+        uses: azure/bicep-deploy@v2
+        with:
+          type: deployment
+          operation: validate
+          name: Development
+          scope: resourceGroup
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          resource-group-name: Project-AzIaC
+          parameters-file: ./main.bicepparam
+          validation-level: providerNoRbac
+
+      - name: What-If
+        uses: azure/bicep-deploy@v2
+        with:
+          type: deployment
+          operation: whatIf
+          name: Development
+          scope: resourceGroup
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          resource-group-name: Project-AzIaC
+          parameters-file: ./main.bicepparam
+          validation-level: providerNoRbac
