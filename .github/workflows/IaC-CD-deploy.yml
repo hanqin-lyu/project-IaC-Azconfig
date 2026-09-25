@@ -1,8 +1,11 @@
-name: Terraform Apply
+---
+name: Terraform Apply (IaC-CD)
 
-on:
+"on":
   push:
     branches: [main]
+    paths:
+      - '02-workload-resources/**'
 
 permissions:
   contents: read
@@ -10,14 +13,18 @@ permissions:
 
 jobs:
   terraform-apply:
+    name: "Terraform Apply"
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 02-workload-resources
     steps:
       - uses: actions/checkout@v4
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
-      - name: Login (Read-Write CD Identity)
+      - name: Azure Login (CD Identity - Read/Write)
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CD_CLIENT_ID }}
@@ -26,16 +33,6 @@ jobs:
 
       - name: Terraform Init
         run: terraform init
-        env:
-          ARM_USE_OIDC: true
-          ARM_CLIENT_ID: ${{ secrets.AZURE_CD_CLIENT_ID }}
-          ARM_TENANT_ID: ${{ secrets.AZURE_CD_TENANT_ID }}
-          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Terraform Apply
         run: terraform apply -auto-approve
-        env:
-          ARM_USE_OIDC: true
-          ARM_CLIENT_ID: ${{ secrets.AZURE_CD_CLIENT_ID }}
-          ARM_TENANT_ID: ${{ secrets.AZURE_CD_TENANT_ID }}
-          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
