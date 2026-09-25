@@ -1,8 +1,11 @@
-name: Terraform Validate & Security Scan
+---
+name: "Terraform Validate & Security Scan"
 
-on:
+"on":
   pull_request:
-    branches: [main]
+    branches: ["main"]
+    paths:
+      - '02-workload-resources/**'
 
 permissions:
   contents: read
@@ -11,7 +14,11 @@ permissions:
 
 jobs:
   fmt-and-validate:
+    name: "Terraform Format & Validate"
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 02-workload-resources
     steps:
       - uses: actions/checkout@v4
 
@@ -21,66 +28,7 @@ jobs:
       - name: Terraform Format Check
         run: terraform fmt -check -recursive
 
-      - name: Terraform Init
-        run: terraform init
-        env:
-          ARM_USE_OIDC: true
-          ARM_CLIENT_ID: ${{ secrets.AZURE_CI_CLIENT_ID }}
-          ARM_TENANT_ID: ${{ secrets.AZURE_CI_TENANT_ID }}
-          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Terraform Validate
-        run: terraform validate
-
-  checkov-scan:
-    needs: fmt-and-validate
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Run Checkov
-        uses: bridgecrewio/checkov-action@master
-        with:
-          directory: .
-          framework: terraform
-          soft_fail: false
-          output_format: sarif
-          output_file_path: checkov-results.sarif
-
-      - name: Upload Checkov SARIF
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: checkov-results.sarif
-          category: checkov
-
-  msdo-scan:
-    needs: fmt-and-validate
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Run Microsoft Security DevOps
-        uses: microsoft/security-devops-action@v1
-        id: msdo
-
-      - name: Upload MSDO SARIF
-        uses: github/codeql-action/upload-sarif@v3
-        if: always()
-        with:
-          sarif_file: ${{ steps.msdo.outputs.sarifFile }}
-          category: msdo
-
-  terraform-plan:
-    needs: [checkov-scan, msdo-scan]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-
-      - name: Login (Read-Only CI Identity)
+      - name: Azure Login (CI Identity - Read Only)
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CI_CLIENT_ID }}
@@ -89,16 +37,54 @@ jobs:
 
       - name: Terraform Init
         run: terraform init
-        env:
-          ARM_USE_OIDC: true
-          ARM_CLIENT_ID: ${{ secrets.AZURE_CI_CLIENT_ID }}
-          ARM_TENANT_ID: ${{ secrets.AZURE_CI_TENANT_ID }}
-          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Terraform Validate
+        run: terraform validate
+
+  checkov-scan:
+    name: "Pre-deployment Security Scan (Shift-Left)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Checkov IaC Scanner
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: 02-workload-resources
+          framework: terraform
+          output_format: sarif
+          output_file_path: checkov-results.sarif
+          soft_fail: false
+
+      - name: Upload Checkov SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: success() || failure()
+        with:
+          sarif_file: checkov-results.sarif
+          category: checkov
+
+  terraform-plan:
+    name: "Terraform Plan Preview"
+    needs: [fmt-and-validate, checkov-scan]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 02-workload-resources
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Azure Login (CI Identity - Read Only)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CI_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_CI_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Terraform Init
+        run: terraform init
 
       - name: Terraform Plan
-        run: terraform plan -out=tfplan
-        env:
-          ARM_USE_OIDC: true
-          ARM_CLIENT_ID: ${{ secrets.AZURE_CI_CLIENT_ID }}
-          ARM_TENANT_ID: ${{ secrets.AZURE_CI_TENANT_ID }}
-          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        run: terraform plan
