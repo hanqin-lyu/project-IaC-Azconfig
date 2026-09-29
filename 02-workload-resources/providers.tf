@@ -16,7 +16,7 @@ terraform {
     storage_account_name = "sttfstateexpense001"
     container_name       = "tfstate"
     key                  = "02-workload-resources.tfstate"
-    use_azuread_auth      = true
+    use_azuread_auth     = true
   }
 }
 
