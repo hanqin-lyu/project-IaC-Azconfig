@@ -3,7 +3,7 @@ module "avm-res-network-networksecuritygroup" {
   version = "0.5.1"
 
   location            = var.location
-  name                = "${var.project_name}-${var.environment}-nsg"
+  name                = "${var.project_name}${var.environment}nsg"
   resource_group_name = var.resource_group_name
 
   security_rules = {
@@ -25,7 +25,7 @@ module "avm-res-network-virtualnetwork" {
   source  = "Azure/avm-res-network-virtualnetwork/azurerm"
   version = "0.19.0"
 
-  name          = "vnet-${var.project_name}-${var.environment}"
+  name          = "vnet${var.project_name}${var.environment}"
   location      = var.location
   parent_id     = "/subscriptions/${var.subscription_id}/resourceGroups/${var.resource_group_name}"
   address_space = ["10.0.0.0/16"]
@@ -50,7 +50,7 @@ module "avm-res-keyvault-vault" {
   source                     = "Azure/avm-res-keyvault-vault/azurerm"
   version                    = "0.10.2"
   location                   = var.location
-  name                       = "kv-${var.project_name}-${var.environment}-01"
+  name                       = "kv${var.project_name}${var.environment}"
   resource_group_name        = var.resource_group_name
   tenant_id                  = var.tenant_id
   purge_protection_enabled   = true
@@ -65,7 +65,7 @@ module "avm-res-sql-server" {
   version = "0.2.1"
 
   location                     = var.location
-  name                         = "${var.project_name}-${var.environment}-sql"
+  name                         = "${var.project_name}${var.environment}sql"
   resource_group_name          = var.resource_group_name
   server_version               = "12.0"
   administrator_login          = var.sql_admin_username
@@ -85,7 +85,7 @@ module "avm-res-cognitiveservices-account" {
 
   kind      = "AIServices"
   location  = var.location
-  name      = "ai-${var.project_name}-${var.environment}"
+  name      = "ai${var.project_name}${var.environment}"
   parent_id = "/subscriptions/${var.subscription_id}/resourceGroups/${var.resource_group_name}"
   sku_name  = "S0"
 }

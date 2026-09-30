@@ -5,12 +5,12 @@ variable "location" {
 }
 variable "subscription_id" {
   type        = string
-  default     = "sub"
+  default     = "11111111-1111-1111-1111-111111111111"
   description = "ID of the Azure subscription."
 }
 variable "tenant_id" {
   type        = string
-  default     = "tenant"
+  default     = "11111111-1111-1111-1111-111111111111"
   description = "ID of the Azure tenant."
 }
 
