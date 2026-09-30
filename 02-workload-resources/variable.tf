@@ -23,12 +23,12 @@ variable "resource_group_name" {
 variable "project_name" {
   type        = string
   description = "Name of the project."
-  default     = "project-name"
+  default     = "pj"
 }
 
 variable "environment" {
   type        = string
-  default     = "def-env"
+  default     = "env"
   description = "Environment name."
 }
 
