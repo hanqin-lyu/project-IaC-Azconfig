@@ -74,7 +74,7 @@ jobs:
 
   terraform-plan:
     name: "Terraform Plan Preview"
-    needs: [fmt-and-validate, checkov-scan]
+    needs: [fmt-and-validate, checkov-scan, secret-scan]
     runs-on: ubuntu-latest
     # Same group as CD so plan and apply never contend for the state lock
     concurrency:

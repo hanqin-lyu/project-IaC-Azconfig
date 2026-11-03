@@ -20,6 +20,10 @@ jobs:
   terraform-apply:
     name: "Terraform Apply"
     runs-on: ubuntu-latest
+    # Manual approval gate: configure Required reviewers on this Environment in GitHub.
+    # The OIDC subject becomes repo:<owner>/<repo>:environment:production-demo,
+    # so the CD identity's federated credential must use that subject.
+    environment: production-demo
     defaults:
       run:
         working-directory: 02-workload-resources
