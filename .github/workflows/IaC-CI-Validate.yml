@@ -56,7 +56,14 @@ jobs:
           output_format: sarif
           output_file_path: checkov-results.sarif
           soft_fail: false
-          skip_check: CKV_TF_1 # Skip check for Azure verified modules ( not applicable for modules form other registries )
+          # Skipped checks, each with a reason:
+          # CKV_TF_1       - module sources are Terraform Registry versions, not git commit hashes
+          # CKV_AZURE_109  - false positive: Checkov cannot resolve the module's dynamic network_acls block (default_action = Deny is set)
+          # CKV_AZURE_112  - no Key Vault keys are created; the check hits the module's unused keys submodule
+          # CKV_AZURE_229  - SQL zone redundancy: out of scope for a cost-limited demo
+          # CKV_AZURE_224  - SQL Ledger: not required for this workload
+          # NOT skipped on purpose: CKV_AZURE_10 (open SSH) is the demo evidence; SQL auditing/VA checks stay visible as known gaps
+          skip_check: CKV_TF_1,CKV_AZURE_109,CKV_AZURE_112,CKV_AZURE_229,CKV_AZURE_224
 
       - name: Upload Checkov SARIF
         uses: github/codeql-action/upload-sarif@v3
