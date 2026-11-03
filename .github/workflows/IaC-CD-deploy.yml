@@ -23,6 +23,13 @@ jobs:
     defaults:
       run:
         working-directory: 02-workload-resources
+    # terraform.tfvars is gitignored, so CD supplies the non-default values itself
+    env:
+      TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_tenant_id: ${{ secrets.AZURE_CD_TENANT_ID }}
+      TF_VAR_resource_group_name: Project-AzIaC
+      TF_VAR_project_name: aziac
+      TF_VAR_environment: demo
     steps:
       - uses: actions/checkout@v4
 
