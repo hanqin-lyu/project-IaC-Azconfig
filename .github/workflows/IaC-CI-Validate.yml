@@ -68,6 +68,10 @@ jobs:
     name: "Terraform Plan Preview"
     needs: [fmt-and-validate, checkov-scan]
     runs-on: ubuntu-latest
+    # Same group as CD so plan and apply never contend for the state lock
+    concurrency:
+      group: terraform-02-workload-resources
+      cancel-in-progress: false
     defaults:
       run:
         working-directory: 02-workload-resources

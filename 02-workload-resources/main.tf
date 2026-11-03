@@ -1,3 +1,4 @@
+# Triggers CI to verify Checkov reports the intentional demo findings (NSG + SQL).
 module "avm-res-network-networksecuritygroup" {
   source  = "Azure/avm-res-network-networksecuritygroup/azurerm"
   version = "0.5.1"

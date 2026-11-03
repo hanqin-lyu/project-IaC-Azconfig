@@ -11,6 +11,11 @@ permissions:
   contents: read
   id-token: write
 
+# Serialise runs against the same state; never cancel an in-flight apply
+concurrency:
+  group: terraform-02-workload-resources
+  cancel-in-progress: false
+
 jobs:
   terraform-apply:
     name: "Terraform Apply"
