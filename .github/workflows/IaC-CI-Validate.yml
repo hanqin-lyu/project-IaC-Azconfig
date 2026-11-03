@@ -51,7 +51,8 @@ jobs:
         uses: bridgecrewio/checkov-action@master
         with:
           directory: 02-workload-resources
-          framework: terraform
+          framework: terraform,secrets
+          download_external_modules: true # AVM resources live inside registry modules; without this Checkov only sees module call arguments
           output_format: sarif
           output_file_path: checkov-results.sarif
           soft_fail: false
