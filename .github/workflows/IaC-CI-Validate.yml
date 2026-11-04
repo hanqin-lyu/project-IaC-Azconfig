@@ -1,16 +1,24 @@
-name: Terraform Validate & Security Scan
+---
+name: "Terraform Validate & Security Scan"
 
-on:
+"on":
   pull_request:
-    branches: [main]
+    branches: ["main"]
+    paths:
+      - '02-workload-resources/**'
 
 permissions:
   contents: read
   id-token: write
+  security-events: write
 
 jobs:
   fmt-and-validate:
+    name: "Terraform Format & Validate"
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 02-workload-resources
     steps:
       - uses: actions/checkout@v4
 
@@ -20,40 +28,7 @@ jobs:
       - name: Terraform Format Check
         run: terraform fmt -check -recursive
 
-      - name: Terraform Init
-        run: terraform init
-        env:
-          ARM_USE_OIDC: true
-          ARM_CLIENT_ID: ${{ secrets.AZURE_CI_CLIENT_ID }}
-          ARM_TENANT_ID: ${{ secrets.AZURE_CI_TENANT_ID }}
-          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Terraform Validate
-        run: terraform validate
-
-  checkov-scan:
-    needs: fmt-and-validate
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Run Checkov
-        uses: bridgecrewio/checkov-action@master
-        with:
-          directory: .
-          framework: terraform
-          soft_fail: false
-
-  terraform-plan:
-    needs: checkov-scan
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-
-      - name: Login (Read-Only CI Identity)
+      - name: Azure Login (CI Identity - Read Only)
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CI_CLIENT_ID }}
@@ -62,16 +37,87 @@ jobs:
 
       - name: Terraform Init
         run: terraform init
-        env:
-          ARM_USE_OIDC: true
-          ARM_CLIENT_ID: ${{ secrets.AZURE_CI_CLIENT_ID }}
-          ARM_TENANT_ID: ${{ secrets.AZURE_CI_TENANT_ID }}
-          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Terraform Validate
+        run: terraform validate
+
+  checkov-scan:
+    name: "Pre-deployment Security Scan (Shift-Left)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Checkov IaC Scanner
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: 02-workload-resources
+          framework: terraform,secrets
+          download_external_modules: true # AVM resources live inside registry modules; without this Checkov only sees module call arguments
+          output_format: sarif
+          output_file_path: checkov-results.sarif
+          soft_fail: false
+          # Skipped checks, each with a reason:
+          # CKV_TF_1       - module sources are Terraform Registry versions, not git commit hashes
+          # CKV_AZURE_109  - false positive: Checkov cannot resolve the module's dynamic network_acls block (default_action = Deny is set)
+          # CKV_AZURE_112  - no Key Vault keys are created; the check hits the module's unused keys submodule
+          # CKV_AZURE_229  - SQL zone redundancy: out of scope for a cost-limited demo
+          # CKV_AZURE_224  - SQL Ledger: not required for this workload
+          # NOT skipped on purpose: CKV_AZURE_10 (open SSH) is the demo evidence; SQL auditing/VA checks stay visible as known gaps
+          skip_check: CKV_TF_1,CKV_AZURE_109,CKV_AZURE_112,CKV_AZURE_229,CKV_AZURE_224
+
+      - name: Upload Checkov SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: success() || failure()
+        with:
+          sarif_file: checkov-results.sarif
+          category: checkov
+
+  terraform-plan:
+    name: "Terraform Plan Preview"
+    needs: [fmt-and-validate, checkov-scan, secret-scan]
+    runs-on: ubuntu-latest
+    # Same group as CD so plan and apply never contend for the state lock
+    concurrency:
+      group: terraform-02-workload-resources
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: 02-workload-resources
+    # terraform.tfvars is gitignored, so CI supplies the non-default values itself
+    env:
+      TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_tenant_id: ${{ secrets.AZURE_CI_TENANT_ID }}
+      TF_VAR_resource_group_name: Project-AzIaC
+      TF_VAR_project_name: aziac
+      TF_VAR_environment: demo
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Azure Login (CI Identity - Read Only)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CI_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_CI_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Terraform Init
+        run: terraform init
 
       - name: Terraform Plan
-        run: terraform plan -out=tfplan
-        env:
-          ARM_USE_OIDC: true
-          ARM_CLIENT_ID: ${{ secrets.AZURE_CI_CLIENT_ID }}
-          ARM_TENANT_ID: ${{ secrets.AZURE_CI_TENANT_ID }}
-          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        run: terraform plan -input=false
+
+  secret-scan:
+    name: "Secret Scan (gitleaks)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Scan the checked-out files (not just the PR diff) so existing hardcoded secrets are found.
+      # Exit code 1 = leaks found.
+      - name: Run gitleaks on working tree
+        run: |
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.24.3 \
+            dir /repo --config /repo/.gitleaks.toml --redact --verbose
