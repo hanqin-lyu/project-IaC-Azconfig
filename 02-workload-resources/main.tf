@@ -16,7 +16,7 @@ module "avm-res-network-networksecuritygroup" {
       protocol                   = "Tcp"
       source_port_range          = "*"
       destination_port_range     = "22"
-      source_address_prefix      = "*" # For Azure policy test only, the ports shouldn't open to everyone.
+      source_address_prefix      = "*" # For Azure policy test, the ports shouldn't open to everyone.
       destination_address_prefix = "*"
     }
   }
