@@ -89,7 +89,7 @@ jobs:
       TF_VAR_tenant_id: ${{ secrets.AZURE_CI_TENANT_ID }}
       TF_VAR_resource_group_name: Project-AzIaC
       TF_VAR_project_name: aziac
-      TF_VAR_environment: demo
+      TF_VAR_environment: demodeny
     steps:
       - uses: actions/checkout@v4
 
