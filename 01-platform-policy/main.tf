@@ -1,7 +1,4 @@
-resource "azurerm_resource_group" "rg" {
-  name     = var.resource_group_name
-  location = var.resource_group_location
-}
+data "azurerm_subscription" "current" {}
 
 resource "azurerm_policy_definition" "audit_open_ssh" {
   name         = "audit-nsg-open-ssh"
@@ -40,9 +37,9 @@ resource "azurerm_policy_definition" "audit_open_ssh" {
   })
 }
 
-resource "azurerm_resource_group_policy_assignment" "audit_open_ssh_assignment" {
+resource "azurerm_subscription_policy_assignment" "audit_open_ssh_assignment" {
   name                 = "audit-nsg-open-ssh-assignment"
-  resource_group_id    = azurerm_resource_group.rg.id
+  subscription_id      = data.azurerm_subscription.current.id
   policy_definition_id = azurerm_policy_definition.audit_open_ssh.id
   display_name         = "Assign Custom auditing: NSG Open SSH"
 }

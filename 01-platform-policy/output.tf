@@ -3,5 +3,5 @@ output "policy_definition_id" {
 }
 
 output "policy_assignment_id" {
-  value = azurerm_resource_group_policy_assignment.audit_open_ssh_assignment.id
+  value = azurerm_subscription_policy_assignment.audit_open_ssh_assignment.id
 }
